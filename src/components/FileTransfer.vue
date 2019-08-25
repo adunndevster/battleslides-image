@@ -1,40 +1,55 @@
 <template>
-  <div>
-    
-    <div>
-      <div class="overlay"></div>
-      <button id="btn-select-file" class="btn-select-file"></button>
-
-      <iframe></iframe>
-
-      <header>
-          <div class="ribbon"><div class="ribbon-stitches-top"></div><strong class="ribbon-content"><h1>
-          </h1></strong><div class="ribbon-stitches-bottom"></div></div>
-      </header>
-
-      <div id="number-of-users" title="Number of online users.">0</div>
-      <div id="logs">
-        <p>
-          Peer-to-Peer (private) file sharing.
-        </p>
-        <p>
-          You can share/receive files from any platform/device e.g. destkop operating systems, Android, iOS etc.
-        </p>
-        <p>
-          Create or join a room & select file using "+" button.
-        </p>
-      </div>
-
-    </div>
+  <div class="file-transfer">
+    <img class="logo" src="@/assets/logo_white.png" />
+    <h2>Add an Image or Video</h2>
+    <p>Want to add some crazy to someone's presentation? Take or find a photo or short video, and it will be uploaded to your game session.</p>
+    <p>Note: These files DO NOT get uploaded to the "cloud". They go straight to your party's machine, and disappear as soon as the game is turned off.</p>
+    <div class="progres-container" v-show="fileProgress > 0"><progress-bar
+      :options="progressOptions"
+      :value="fileProgress"
+      /></div>
+    <a id="btn-select-file" class="btn-select-file button is-danger">Find a file</a>
   </div>
 </template>
 
 <script>
 import {FileSelector} from "../common/FileSelector";
 
+let vue;
 export default {
   name: "title-screen",
+  data: () => {
+    return {
+      progressOptions: {
+        text: {
+          color: '#ffffff',
+          shadowEnable: true,
+          shadowColor: '#000000',
+          fontSize: 14,
+          fontFamily: 'Segoe UI',
+          dynamicPosition: false,
+          hideText: false
+        },
+        progress: {
+          color: '#00d1b2',
+          backgroundColor: '#000000'
+        },
+        layout: {
+          height: 35,
+          width: 140,
+          verticalTextAlign: 61,
+          horizontalTextAlign: 43,
+          zeroOffset: 0,
+          strokeWidth: 30,
+          progressPadding: 0,
+          type: 'line'
+        }
+      },
+      fileProgress: 0,
+    }
+  },
   mounted() {
+    vue = this;
     window.getExternalIceServers = true;
 
     window.onerror = console.error = function() {
@@ -54,16 +69,13 @@ export default {
         
         var connection;
         function joinARoom(roomId) {
-            var iframe = document.querySelector('iframe');
             btnSelectFile.onclick = function(file) {
                 if(file && (file instanceof File || file instanceof Blob) && file.size) {
-                  previewFile(file);
                   onFileSelected(file);
                   return;
                 }
                 var fileSelector = new FileSelector();
                 fileSelector.selectSingleFile(function(file) {
-                    previewFile(file);
                     onFileSelected(file);
                 });
             };
@@ -98,7 +110,7 @@ export default {
                 connection.channel = connection.sessionid = roomId;
                 connection.session = {
                     data: true,
-                    // oneway: true --- to make it one-to-many
+                    oneway: false //--- to make it one-to-many
                 };
                 // https://www.rtcmulticonnection.org/docs/iceServers/
                 // use your own TURN-server here!
@@ -110,13 +122,12 @@ export default {
                         'stun:stun.l.google.com:19302?transport=udp',
                     ]
                 }];
-                connection.filesContainer = logsDiv;
                 connection.connectedWith = {};
                 connection.onmessage = function(event) {
                     if(event.data.doYouWannaReceiveThisFile) {
                         if(!connection.fileReceived[event.data.fileName]) {
                             connection.send({
-                                yesIWannaReceive:true,
+                                yesIWannaReceive:false,
                                 fileName: event.data.fileName
                             });
                         }
@@ -133,12 +144,12 @@ export default {
                     if (connection.connectedWith[e.userid]) return;
                     connection.connectedWith[e.userid] = true;
                     var message = '<b>' + e.userid + '</b><br>is connected.';
-                    appendLog(message);
+                    console.log(message);
                     if (!lastSelectedFile) return;
                     // already shared the file
                     var file = lastSelectedFile;
                     setTimeout(function() {
-                        appendLog('Sharing file<br><b>' + file.name + '</b><br>Size: <b>' + bytesToSize(file.size) + '<b><br>With <b>' + connection.getAllParticipants().length + '</b> users');
+                        console.log('Sharing file<br><b>' + file.name + '</b><br>Size: <b>' + bytesToSize(file.size) + '<b><br>With <b>' + connection.getAllParticipants().length + '</b> users');
                         connection.send({
                             doYouWannaReceiveThisFile: true,
                             fileName: file.size + file.name
@@ -146,33 +157,30 @@ export default {
                     }, 500);
                 };
                 connection.onclose = function(e) {
-                    incrementOrDecrementUsers();
                     if (connection.connectedWith[e.userid]) return;
-                    appendLog('Data connection has been closed between you and <b>' + e.userid + '</b>. Re-Connecting..');
+                    console.log('Data connection has been closed between you and <b>' + e.userid + '</b>. Re-Connecting..');
                     connection.join(roomId);
                 };
                 connection.onerror = function(e) {
                     if (connection.connectedWith[e.userid]) return;
-                    appendLog('Data connection failed. between you and <b>' + e.userid + '</b>. Retrying..');
+                    console.log('Data connection failed. between you and <b>' + e.userid + '</b>. Retrying..');
                 };
                 setFileProgressBarHandlers(connection);
                 connection.onUserStatusChanged = function(user) {
-                    incrementOrDecrementUsers();
                 };
                 connection.onleave = function(user) {
                     user.status = 'offline';
                     connection.onUserStatusChanged(user);
-                    incrementOrDecrementUsers();
                 };
                 var message = 'Connecting room:<br><b>' + connection.channel + '</b>';
-                appendLog(message);
+                console.log(message);
                 connection.openOrJoin(connection.channel, function(isRoomExist, roomid) {
                     var message = 'Successfully connected to room: <b>' + roomid + '</b><hr>Other users can join you on iPhone/Android using "' + roomid + '" or desktop (Windows/MacOSX/Ubuntu) users can join using this (secure/private) URL: <a href="./file-sharing.html#' + roomid + '" target="_blank">file-sharing.html#' + roomid + '</a>';
                     // if (isRoomEists) { }
-                    appendLog(message);
+                    console.log(message);
                     connection.getSocket(function(socket) {
                       socket.on('disconnect', function() {
-                         appendLog('Seems disconnected.', 'red');
+                         console.log('Seems disconnected.', 'red');
                       });
                       socket.on('connect', function() {
                          location.reload();
@@ -182,113 +190,58 @@ export default {
                       });
                     });
                     window.addEventListener('offline', function() {
-                      appendLog('Seems disconnected.', 'red');
+                      console.log('Seems disconnected.', 'red');
                     }, false);
                 });
                 window.connection = connection;
             }
             function setFileProgressBarHandlers(connection) {
-                var progressHelper = {};
-                // www.RTCMultiConnection.org/docs/onFileStart/
-                connection.onFileStart = function(file) {
-                    if (connection.fileReceived[file.size + file.name]) return;
-                    var div = document.createElement('div');
-                    div.style.borderBottom = '1px solid black';
-                    div.style.padding = '2px 4px';
-                    div.id = file.uuid;
-                    var message = '';
-                    if (file.userid == connection.userid) {
-                        message += 'Sharing with:' + file.remoteUserId;
-                    } else {
-                        message += 'Receiving from:' + file.userid;
-                    }
-                    message += '<br><b>' + file.name + '</b>.';
-                    message += '<br>Size: <b>' + bytesToSize(file.size) + '</b>';
-                    message += '<br><label>0%</label> <progress></progress>';
-                    if(file.userid !== connection.userid) {
-                        message += '<br><button id="resend">Receive Again?</button>';
-                    }
-                    div.innerHTML = message;
-                    connection.filesContainer.insertBefore(div, connection.filesContainer.firstChild);
-                    if(file.userid !== connection.userid && div.querySelector('#resend')) {
-                        div.querySelector('#resend').onclick = function(e) {
-                            e.preventDefault();
-                            this.onclick = function() {};
-                            if(connection.fileReceived[file.size + file.name]) {
-                                delete connection.fileReceived[file.size + file.name];
-                            }
-                            connection.send({
-                                yesIWannaReceive: true,
-                                fileName: file.name
-                            }, file.userid);
-                            div.parentNode.removeChild(div);
-                        };
-                    }
-                    if (!file.remoteUserId) {
-                        progressHelper[file.uuid] = {
-                            div: div,
-                            progress: div.querySelector('progress'),
-                            label: div.querySelector('label')
-                        };
-                        progressHelper[file.uuid].progress.max = file.maxChunks;
-                        return;
-                    }
-                    if (!progressHelper[file.uuid]) {
-                        progressHelper[file.uuid] = {};
-                    }
-                    progressHelper[file.uuid][file.remoteUserId] = {
-                        div: div,
-                        progress: div.querySelector('progress'),
-                        label: div.querySelector('label')
-                    };
-                    progressHelper[file.uuid][file.remoteUserId].progress.max = file.maxChunks;
-                };
-                // www.RTCMultiConnection.org/docs/onFileProgress/
-                connection.onFileProgress = function(chunk) {
-                    if (connection.fileReceived[chunk.size + chunk.name]) return;
-                    var helper = progressHelper[chunk.uuid];
-                    if (!helper) {
-                        return;
-                    }
-                    if (chunk.remoteUserId) {
-                        helper = progressHelper[chunk.uuid][chunk.remoteUserId];
-                        if (!helper) {
-                            return;
-                        }
-                    }
-                    helper.progress.value = chunk.currentPosition || chunk.maxChunks || helper.progress.max;
-                    updateLabel(helper.progress, helper.label);
-                };
-                // www.RTCMultiConnection.org/docs/onFileEnd/
-                connection.onFileEnd = function(file) {
-                    if (connection.fileReceived[file.size + file.name]) return;
-                    var div = document.getElementById(file.uuid);
-                    if (div) {
-                        div.parentNode.removeChild(div);
-                    }
-                    if (file.remoteUserId === connection.userid) {
-                        previewFile(file);
-                        connection.fileReceived[file.size + file.name] = file;
-                        var message = 'Successfully received file';
-                        message += '<br><b>' + file.name + '</b>.';
-                        message += '<br>Size: <b>' + bytesToSize(file.size) + '</b>.';
-                        message += '<br><a href="' + file.url + '" target="_blank" download="' + file.name + '">Download</a>';
-                        var div = appendLog(message);
-                        return;
-                    }
-                    var message = 'Successfully shared file';
-                    message += '<br><b>' + file.name + '</b>.';
-                    message += '<br>With: <b>' + file.remoteUserId + '</b>.';
-                    message += '<br>Size: <b>' + bytesToSize(file.size) + '</b>.';
-                    appendLog(message);
-                };
-                function updateLabel(progress, label) {
-                    if (progress.position === -1) {
-                        return;
-                    }
-                    var position = +progress.position.toFixed(2).split('.')[1] || 100;
-                    label.innerHTML = position + '%';
-                }
+              const progressHelper = {};
+              // www.RTCMultiConnection.org/docs/onFileStart/
+              connection.onFileStart = function(file) {
+                  if (connection.fileReceived[file.size + file.name]) return;
+                  //var message = '';
+                  if (file.userid == connection.userid) {
+                      //message += 'Sharing with:' + file.remoteUserId;
+                  } else {
+                      //message += 'Receiving from:' + file.userid;
+                  }
+                  //message += '<br><b>' + file.name + '</b>.';
+                  //message += '<br>Size: <b>' + bytesToSize(file.size) + '</b>';
+                  //message += '<br><label>0%</label> <progress></progress>';
+                  if (!file.remoteUserId) {
+                      //progressHelper[file.uuid].progress.max = file.maxChunks;
+                      return;
+                  }
+                  //progressHelper[file.uuid][file.remoteUserId].progress.max = file.maxChunks;
+              };
+              // www.RTCMultiConnection.org/docs/onFileProgress/
+              connection.onFileProgress = function(chunk) {
+                  if (connection.fileReceived[chunk.size + chunk.name]) return;
+                  // var helper = progressHelper[chunk.uuid];
+                  // if (!helper) {
+                  //     return;
+                  // }
+                  // if (chunk.remoteUserId) {
+                  //     //helper = progressHelper[chunk.uuid][chunk.remoteUserId];
+                  //     if (!helper) {
+                  //         return;
+                  //     }
+                  // }
+                  vue.fileProgress = Math.round((chunk.currentPosition / chunk.maxChunks) * 100);
+                  vue.fileProgress = (vue.fileProgress > 100) ? 100 : vue.fileProgress;
+                  console.log(JSON.stringify(Math.round(chunk.currentPosition / chunk.maxChunks)));
+                  //helper.progress.value = chunk.currentPosition || chunk.maxChunks || helper.progress.max;
+              };
+              // www.RTCMultiConnection.org/docs/onFileEnd/
+              connection.onFileEnd = function(file) {
+                  if (connection.fileReceived[file.size + file.name]) return;
+                  var message = 'Successfully shared file';
+                  message += '<br><b>' + file.name + '</b>.';
+                  message += '<br>With: <b>' + file.remoteUserId + '</b>.';
+                  message += '<br>Size: <b>' + bytesToSize(file.size) + '</b>.';
+                  console.log(message);
+              };
             }
             function bytesToSize(bytes) {
                 var k = 1000;
@@ -301,7 +254,7 @@ export default {
             }
             function onFileSelected(file) {
                 var innerHTML = 'You selected:<br><b>' + file.name + '</b><br>Size: <b>' + bytesToSize(file.size) + '</b>';
-                appendLog(innerHTML);
+                console.log(innerHTML);
                 lastSelectedFile = file;
                 if (connection) {
                     connection.send({
@@ -310,56 +263,13 @@ export default {
                     });
                 }
             }
-            var numberOfUsers = document.getElementById('number-of-users');
-            function incrementOrDecrementUsers() {
-                numberOfUsers.innerHTML = connection ? connection.getAllParticipants().length : 0;
-            }
-            var logsDiv = document.getElementById('logs');
-            function appendLog(html, color) {
-                var div = document.createElement('div');
-                div.innerHTML = '<p>' + html + '</p>';
-                logsDiv.insertBefore(div, logsDiv.firstChild);
-                if(color) {
-                  div.style.color = color;
-                }
-                return div;
-            }
             window.onerror = console.error = function() {
                 var error = JSON.stringify(arguments);
                 if(error.indexOf('Blocked a frame with origin') !== -1) {
                   return;
                 }
-                appendLog('Error:<br>' + error, 'red')
+                console.log('Error:<br>' + error, 'red')
             };
-            function previewFile(file) {
-                btnSelectFile.style.left = '5px';
-                btnSelectFile.style.right = 'auto';
-                btnSelectFile.style.zIndex = 10;
-                btnSelectFile.style.top = '5px';
-                btnSelectFile.style.outline = 'none';
-                document.querySelector('.overlay').style.display = 'none';
-                iframe.style.display = 'block';
-                iframe.onload = function() {
-                    Array.prototype.slice.call(iframe.contentWindow.document.body.querySelectorAll('*')).forEach(function(element) {
-                        element.style.maxWidth = '100%';
-                    });
-                    if (!file.type || fileNameMatches || file.type.match(/image|video|audio|pdf/g) || iframe.src.indexOf('data:image/png') !== -1 || iframe.src.toLowerCase().search(/.png|.jpeg|.jpg|.gif/g) !== -1) {
-                        iframe.contentWindow.document.body.style.textAlign = 'center';
-                        iframe.contentWindow.document.body.style.background = 'black';
-                        iframe.contentWindow.document.body.style.color = 'white';
-                        return;
-                    }
-                    iframe.contentWindow.document.body.style.textAlign = 'left';
-                    iframe.contentWindow.document.body.style.background = 'white';
-                    iframe.contentWindow.document.body.style.color = 'black';
-                };
-                var fileNameMatches = (file.name || '').toLowerCase().match(/.webm|.wav|.pdf|.txt|.js|.css|.cs|.png|.jpg|.jpeg|.gif/g);
-                if (fileNameMatches) {
-                    iframe.src = URL.createObjectURL(file);
-                } else {
-                    iframe.src = 'https://www.webrtc-experiment.com/images/unknown-file.png';
-                }
-            }
             setupWebRTCConnection();
         }
         window.addEventListener('online', function() {
@@ -395,195 +305,20 @@ export default {
 
 
 <style>
-        * {
-          margin: 0;
-          padding: 0;
-        }
-        ::-webkit-scrollbar {
-          height: 0;
-          overflow: visible;
-          width: 10px;
-          border-left:1px solid rgb(229, 229, 229);
-        }
-        ::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, .2);
-          background-clip: padding-box;
-          min-height: 28px;
-          padding: 100px 0 0;
-          box-shadow: inset 1px 1px 0 rgba(0,0,0,.1),inset 0 -1px 0 rgba(0,0,0,.07);
-          border-width: 1px 1px 1px 6px;
-        }
-        ::-webkit-scrollbar-button {
-          height: 0;
-          width: 0;
-        }
-        ::-webkit-scrollbar-track {
-          background-clip: padding-box;
-          border: solid transparent;
-          border-width: 0 0 0 4px;
-        }
-        ::-webkit-scrollbar-corner {
-          background: transparent;
-        }
-        html, body {
-          background-color: black;
-          font-family: 'Open Sans', 'Segoe UI Light','Segoe UI',Verdana,Arial;
-          font-size: 1.1em;
-          overflow: hidden;
-        }
-        .overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: black;
-          z-index: 1;
-        }
-        .btn-select-file {
-          position: absolute;
-          z-index: 2;
-          left: 40%;
-          top: 40%;
-          width: 100px;
-          height: 100px;
-          -webkit-user-select: none;
-          border-radius: 50%;
-          text-shadow: 2px 2px white;
-          border: 1px solid #1B1B1B;
-          background-color: #D5D8D8;
-          cursor: pointer;
-          background-image: url(https://www.webrtc-experiment.com/images/btn-select-file.png);
-          outline: none;
-        }
-        .btn-select-file:hover {
-          background-color: #BBBBBB;
-        }
-        .btn-select-file:active {
-          background-color: #7F7B7B;
-        }
-        iframe {
-          position: absolute;
-          width: 80%;
-          height: 96%;
-          top: 87px;
-          left: 0;
-          right: 20;
-          bottom: 0;
-          border: 0;
-          outline: 0;
-          z-index: 5;
-          display: none;
-        }
-        #logs {
-          position: absolute;
-          background: white;
-          border-left: 1px solid black;
-          width: 20%;
-          top: 87px;
-          right: 0;
-          bottom: 0;
-          z-index: 6;
-          font-size: medium;
-          overflow: auto;
-          height: 100%;
-          border-top-left-radius: 5px;
-          font-size: 22px;
-        }
-        #logs p {
-          padding: 2px 4px;
-          border-bottom: 1px solid black;
-        }
-        header {
-          position: absolute;
-          text-align: center;
-          width: 100%;
-          height: 61px;
-          top: 0;
-          right: 0;
-          left: 0;
-          z-index: 7;
-          padding-top: 8px;
-          background: #EFEBEB;
-          border-bottom: 1px solid white;
-        }
-        #number-of-users {
-          position: absolute;
-          right: 60px;
-          top: 16px;
-          width: 36px;
-          height: 30px;
-          -webkit-user-select: none;
-          border-radius: 5px;
-          border: 1px solid #FFFFFF;
-          background-color: #E83930;
-          z-index: 8;
-          text-align: center;
-          padding-top: 6px;
-          color: white;
-        }
-        #join-room {
-          border: 1px solid black;
-          background: rgba(255, 255, 255, 0.28);
-          padding: 1px 3px;
-          border-left: 0;
-          font-size: 100%;
-          border-top-right-radius: 5px;
-          border-bottom-right-radius: 5px;
-        }
-         .android-app-icon {
-           background-repeat: no-repeat;
-           background-position: center center;
-           background-size: 64px 64px;
-           background-image: url(https://www.webrtc-experiment.com/images/android-app-icon.png);
-           width: 64px;
-           height: 64px;
-           position: absolute;
-           bottom: 5px;
-           left: 15px;
-           z-index: 9999;
-         }
-         .chrome-web-store-icon {
-          background-repeat: no-repeat;
-           background-position: center center;
-           background-size: 64px 64px;
-           background-image: url(https://www.webrtc-experiment.com/images/chrome-web-store-icon.png);
-           width: 64px;
-           height: 64px;
-           position: absolute;
-           bottom: 5px;
-           left: 90px;
-           z-index: 9999;
-         }
-        @media all and (max-width: 500px) {
-          #logs {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            top: auto;
-            height: 40%;
-            border-left: 0;
-            border-top: 1px solid black;
-            font-size: 18px;
-          }
-          .btn-select-file {
-            top: 20%;
-            left: 40%;
-          }
-          .ribbon{
-            height: 150%;
-            width: 80%;
-          }
-          .ribbon h1 {
-            font-size: 20px!important;
-          }
-          #number-of-users {
-            right: 50px;
-          }
-          .android-app-icon, .chrome-web-store-icon {
-            display: none;
-          }
-        }
-        hr {border:0;}
-    </style>
+body {
+  background-color: black;
+}
+
+.file-transfer .logo {
+  width: 100%;
+}
+
+.progress-container {
+  margin-top: 20px;
+}
+
+.btn-select-file
+{
+  margin-top: 20px;
+}
+</style>

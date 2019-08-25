@@ -9,11 +9,13 @@
     "deploy": "npm run build; push-dir --dir=dist --branch=gh-pages --cleanup"
   },
   "dependencies": {
+    "bulma": "^0.7.5",
     "core-js": "^2.6.5",
     "fbr": "^2.0.8",
     "push-dir": "^0.4.1",
     "rtcmulticonnection": "^3.6.9",
-    "vue": "^2.6.10"
+    "vue": "^2.6.10",
+    "vuejs-progress-bar": "^1.1.1"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.10.0",
