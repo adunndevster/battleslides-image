@@ -8,7 +8,10 @@
       :options="progressOptions"
       :value="fileProgress"
       /></div>
-    <a id="btn-select-file" class="btn-select-file button is-danger">Find a file</a>
+      <br>
+    <input type="text" id="room-num" class="input is-large" onkeypress="return /[a-z]/i.test(event.key)" >
+    <a v-show="!joined" id="btn-join-game" class="btn-select-file button">Join game</a>
+    <a v-show="joined" id="btn-select-file" class="btn-select-file button is-danger">Find a file</a>
   </div>
 </template>
 
@@ -20,6 +23,7 @@ export default {
   name: "title-screen",
   data: () => {
     return {
+      joined: false,
       progressOptions: {
         text: {
           color: '#ffffff',
@@ -52,6 +56,12 @@ export default {
     vue = this;
     window.getExternalIceServers = true;
 
+    let btnJoinGame = document.getElementById("btn-join-game");
+    btnJoinGame.onclick = () => {
+      let roomNum = document.getElementById("room-num").value;
+      setupFileTransfer(roomNum.toUpperCase());
+    }
+
     window.onerror = console.error = function() {
             var error = JSON.stringify(arguments);
             if(error.indexOf('Blocked a frame with origin') !== -1) {
@@ -63,8 +73,9 @@ export default {
         // MIT License   - https://www.WebRTC-Experiment.com/licence/
         // Source Code   - https://github.com/muaz-khan/RTCMultiConnection
         let btnSelectFile = document.getElementById("btn-select-file")
-        function setupFileTransfer() {
-          joinARoom("battleslides-1234");
+        function setupFileTransfer(roomNum) {
+          alert(roomNum);
+          joinARoom(`battleslides-${roomNum}`);
         }
         
         var connection;
@@ -293,8 +304,6 @@ export default {
           }
           btnSelectFile.onclick(file);
         }, false);
-        
-      setupFileTransfer();
   },
   methods: {
     
@@ -320,5 +329,9 @@ body {
 .btn-select-file
 {
   margin-top: 20px;
+}
+
+input{
+  text-align: center;
 }
 </style>
