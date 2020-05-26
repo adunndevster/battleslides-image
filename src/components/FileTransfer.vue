@@ -74,7 +74,6 @@ export default {
         // Source Code   - https://github.com/muaz-khan/RTCMultiConnection
         let btnSelectFile = document.getElementById("btn-select-file")
         function setupFileTransfer(roomNum) {
-          alert(roomNum);
           joinARoom(`battleslides-${roomNum}`);
         }
         
