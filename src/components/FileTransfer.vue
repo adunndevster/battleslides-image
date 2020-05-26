@@ -9,7 +9,7 @@
       :value="fileProgress"
       /></div>
       <br>
-    <input type="text" id="room-num" class="input is-large" onkeypress="return /[a-z]/i.test(event.key)" >
+    <input v-show="!joined" type="text" id="room-num" class="input is-large" onkeypress="return /[a-z]/i.test(event.key)" >
     <a v-show="!joined" id="btn-join-game" class="btn-select-file button">Join game</a>
     <a v-show="joined" id="btn-select-file" class="btn-select-file button is-danger">Find a file</a>
   </div>
@@ -80,6 +80,7 @@ export default {
         
         var connection;
         function joinARoom(roomId) {
+            vue.joined = true;
             btnSelectFile.onclick = function(file) {
                 if(file && (file instanceof File || file instanceof Blob) && file.size) {
                   onFileSelected(file);
